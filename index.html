@@ -8,7 +8,10 @@
     <style>
         body { -webkit-tap-highlight-color: transparent; }
         .matched { pointer-events: auto; transition: all 0.3s; }
-        .type-matched { opacity: 0.6; pointer-events: none; transform: scale(0.95); }
+        
+        /* 🌟 修正點：移除了 pointer-events: none，讓配對成功後依然可以點擊發音 */
+        .type-matched { opacity: 0.6; transform: scale(0.95); transition: all 0.3s; }
+        
         .selected {
             border-color: #facc15 !important; 
             box-shadow: 0 0 15px rgba(250, 204, 21, 0.8);
@@ -30,7 +33,12 @@
                 box-shadow: 0 10px 20px rgba(0,0,0,0.1);
             }
         }
-        .clickable-audio:hover { filter: brightness(1.1); transform: scale(1.03); }
+        
+        /* 確保喇叭圖示在點擊時也有回饋感 */
+        .clickable-audio:active { filter: brightness(0.9); transform: scale(0.98); }
+        @media (min-width: 768px) {
+            .clickable-audio:hover { filter: brightness(1.1); transform: scale(1.03); }
+        }
         
         @keyframes pulse-green {
             0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
@@ -56,7 +64,6 @@
         }
         .shake { animation: shake 0.4s ease-in-out; }
 
-        /* 🌟 修正點 1：調整往上飄浮的距離，讓動畫更高 */
         @keyframes floatScore {
             0% { opacity: 0; transform: translateY(0px) scale(0.5); }
             20% { opacity: 1; transform: translateY(-20px) scale(1.2); }
@@ -66,7 +73,6 @@
         
         .float-score {
             position: absolute;
-            /* 🌟 修正點 2：將起始位置從 30% 大幅上移到 5%，完全避開中間的圖片與文字 */
             top: 5%; 
             left: 0;
             width: 100%;
@@ -211,202 +217,3 @@
                 pCard.dataset.type = p.t;
                 
                 const imageUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.i}.png`;
-                pCard.innerHTML = `<img id="img-${p.i}" src="${imageUrl}" alt="Pokemon" class="h-24 md:h-40 object-contain pointer-events-none transition-all duration-300">`;
-                
-                pCard.onclick = () => handlePokeClick(pCard, p.i);
-                pokeCol.appendChild(pCard);
-            });
-
-            shuffledTypes.forEach(p => {
-                const tCard = document.createElement('div');
-                tCard.className = 'card bg-blue-50 hover:bg-blue-100 p-2 md:p-6 rounded-2xl md:rounded-[2rem] shadow-md md:shadow-lg border-4 md:border-[6px] border-gray-100 flex justify-center items-center h-40 md:h-64 clickable-audio w-full relative';
-                tCard.dataset.type = p.t;
-                tCard.innerHTML = `<span class="text-xl sm:text-2xl md:text-5xl lg:text-6xl font-black text-blue-800 tracking-wider flex items-center justify-center flex-wrap gap-1 md:gap-4 text-center">${p.t} <span class="text-lg md:text-5xl">🔊</span></span>`;
-                
-                tCard.onclick = () => handleTypeClick(tCard, p.t);
-                typeCol.appendChild(tCard);
-            });
-        }
-
-        function handleTypeClick(element, typeText) {
-            if (isProcessing) return;
-            speakText(typeText);
-            if (element.classList.contains('type-matched')) return;
-            Array.from(element.parentElement.children).forEach(el => el.classList.remove('selected'));
-            element.classList.add('selected');
-            selectedType = element;
-            if (selectedPokemon && selectedType) checkMatch();
-        }
-
-        function handlePokeClick(element, id) {
-            if (isProcessing) return;
-            if (element.classList.contains('matched')) {
-                if (!element.dataset.introShown) {
-                    showIntro(element, id);
-                } else {
-                    const p = typeDB.find(item => item.i === id);
-                    speakText(p.e);
-                }
-                return;
-            }
-            Array.from(element.parentElement.children).forEach(el => el.classList.remove('selected'));
-            element.classList.add('selected');
-            selectedPokemon = element;
-            if (selectedPokemon && selectedType) checkMatch();
-        }
-
-        function drawConnectionLine(cardA, cardB, animate = true) {
-            const board = document.getElementById('gameBoard');
-            const svgLayer = document.getElementById('lineLayer');
-            
-            const boardRect = board.getBoundingClientRect();
-            const rectA = cardA.getBoundingClientRect();
-            const rectB = cardB.getBoundingClientRect();
-
-            const startX = rectA.right - boardRect.left - 5; 
-            const startY = rectA.top + rectA.height / 2 - boardRect.top;
-            const endX = rectB.left - boardRect.left + 5;   
-            const endY = rectB.top + rectB.height / 2 - boardRect.top;
-
-            const cpX1 = startX + (endX - startX) / 2;
-            const cpY1 = startY;
-            const cpX2 = startX + (endX - startX) / 2;
-            const cpY2 = endY;
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const d = `M ${startX} ${startY} C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${endX} ${endY}`;
-            
-            path.setAttribute('d', d);
-            path.setAttribute('class', animate ? 'draw-line-path draw-line-anim' : 'draw-line-path'); 
-            
-            svgLayer.appendChild(path);
-        }
-
-        window.addEventListener('resize', () => {
-            const svgLayer = document.getElementById('lineLayer');
-            svgLayer.innerHTML = '';
-            matchedPairsList.forEach(pair => {
-                drawConnectionLine(pair.cardA, pair.cardB, false); 
-            });
-        });
-
-        function showFloatingScore(element, isCorrect) {
-            const animDiv = document.createElement('div');
-            const textColor = isCorrect ? 'text-green-500' : 'text-red-500';
-            const icon = isCorrect ? '✅' : '❌';
-            const text = isCorrect ? '+10' : '-2';
-            
-            animDiv.className = `float-score ${textColor}`;
-            animDiv.innerHTML = `
-                <span class="text-3xl md:text-5xl drop-shadow-md">${icon}</span>
-                <span class="text-4xl md:text-6xl tracking-wider">${text}</span>
-            `;
-            
-            element.appendChild(animDiv);
-            
-            setTimeout(() => {
-                if(animDiv.parentNode === element) {
-                    element.removeChild(animDiv);
-                }
-            }, 1500);
-        }
-
-        function checkMatch() {
-            isProcessing = true; 
-            const pType = selectedPokemon.dataset.type;
-            const tType = selectedType.dataset.type;
-            const msgEl = document.getElementById('message');
-
-            const currentPokeCard = selectedPokemon;
-            const currentTypeCard = selectedType;
-
-            if (pType === tType) {
-                msgEl.innerText = "Correct! Click Pokémon! ✨";
-                msgEl.className = "text-2xl md:text-4xl font-bold text-green-500 h-8 md:h-12 mb-4 md:mb-6 drop-shadow-sm";
-                speakText("Correct!", 1.0);
-                
-                drawConnectionLine(currentPokeCard, currentTypeCard, true);
-                matchedPairsList.push({ cardA: currentPokeCard, cardB: currentTypeCard });
-
-                currentPokeCard.classList.add('matched', 'hint-pulse');
-                currentTypeCard.classList.add('type-matched');
-                
-                currentPokeCard.classList.remove('selected', 'border-gray-100');
-                currentTypeCard.classList.remove('selected', 'border-gray-100');
-                
-                currentTypeCard.classList.add('border-green-400', 'bg-green-50');
-
-                showFloatingScore(currentPokeCard, true);
-                showFloatingScore(currentTypeCard, true);
-
-                currentScore += 10;
-                document.getElementById('currentScore').innerText = currentScore;
-                matchCount++;
-
-                if (matchCount === currentRoundPokemons.length) {
-                    setTimeout(() => {
-                        msgEl.innerText = "Round Clear! Great job! 🎉";
-                        speakText("Round Clear! Great job!", 0.9);
-                    }, 1000);
-                }
-                
-                isProcessing = false;
-
-            } else {
-                msgEl.innerText = "Try Again! ❌";
-                msgEl.className = "text-2xl md:text-4xl font-bold text-red-500 h-8 md:h-12 mb-4 md:mb-6 drop-shadow-sm";
-                speakText("Try again.", 1.0);
-                
-                currentPokeCard.classList.remove('selected');
-                currentTypeCard.classList.remove('selected');
-                currentPokeCard.classList.add('shake');
-                currentTypeCard.classList.add('shake');
-
-                showFloatingScore(currentPokeCard, false);
-                showFloatingScore(currentTypeCard, false);
-                
-                currentScore = Math.max(0, currentScore - 2);
-                document.getElementById('currentScore').innerText = currentScore;
-                
-                setTimeout(() => {
-                    currentPokeCard.classList.remove('shake');
-                    currentTypeCard.classList.remove('shake');
-                    isProcessing = false;
-                }, 400);
-            }
-
-            selectedPokemon = null;
-            selectedType = null;
-        }
-
-        function showIntro(card, id) {
-            card.dataset.introShown = "true";
-            card.classList.remove('hint-pulse');
-            card.classList.add('bg-green-50', 'border-green-400');
-
-            const p = typeDB.find(item => item.i === id);
-            
-            const img = document.getElementById(`img-${id}`);
-            img.classList.add('img-shrink');
-            img.classList.remove('h-24', 'md:h-40');
-
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'fade-in-up flex flex-col items-center justify-center mt-1 md:mt-3 w-full px-1 md:px-2';
-            
-            infoDiv.innerHTML = `
-                <h3 class="text-xl md:text-4xl font-black text-gray-800 tracking-wider mb-0 md:mb-1 drop-shadow-sm leading-none">${p.e.toUpperCase()}</h3>
-                <p class="text-sm md:text-2xl font-bold text-gray-600 mb-1 md:mb-3 leading-none">${p.z}</p>
-                <div class="bg-green-100 text-green-800 border-2 md:border-4 border-green-300 rounded-lg md:rounded-2xl w-full py-1 md:py-2 px-1 text-xs md:text-xl font-bold text-center leading-tight shadow-sm">
-                    ${p.eg}<br>
-                    <span class="text-[10px] md:text-base text-green-600 mt-0 md:mt-1 inline-block">${p.zg}</span>
-                </div>
-            `;
-            
-            card.appendChild(infoDiv);
-            speakText(p.e, 0.85);
-        }
-
-        initGame();
-    </script>
-</body>
-</html>
