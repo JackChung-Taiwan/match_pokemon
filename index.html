@@ -173,7 +173,7 @@
         let matchedPairsList = []; 
         let isProcessing = false;
 
-        function speakText(text, speechRate = 0.8) {
+        function speakText(text, speechRate = 0.9) {
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'en-US';
@@ -424,3 +424,4 @@
     </script>
 </body>
 </html>
+
